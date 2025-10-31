@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "323424202757",
+    "project_id": "akillikocumyks",
+    "storage_bucket": "akillikocumyks.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:323424202757:android:68c586e416bab1758c2c6c",
+        "android_client_info": {
+          "package_name": "com.cyhngkce.akillikocum"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZpLZk3UVcrdOvTJkqn5l-1S5j8a9gjOI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:323424202757:android:1efd293d20c849c98c2c6c",
+        "android_client_info": {
+          "package_name": "com.example.akillikocum"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZpLZk3UVcrdOvTJkqn5l-1S5j8a9gjOI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
