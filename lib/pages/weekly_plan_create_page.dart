@@ -14,6 +14,9 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
   final _formKey = GlobalKey<FormState>();
   late TabController _tabController;
   
+  // Plan türü seçim aşaması
+  bool _planTypeSelected = false;
+  
   // Plan modu
   int _selectedMode = 0; // 0: Hedef Odaklı, 1: Saat Saat
   
@@ -108,7 +111,11 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
         // Saat saat plan - TimeSlot'ları Map'e çevir
         _weekDays.forEach((day) {
           planData[day] = (_timeBasedPlan[day] ?? []).map((slot) {
-            return '${slot.startTime} - ${slot.endTime}: ${slot.activity}';
+            return {
+              'startTime': slot.startTime,
+              'endTime': slot.endTime,
+              'activity': slot.activity,
+            };
           }).toList();
         });
       }
@@ -329,124 +336,215 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.deepPurple,
-        title: const Text(
-          'Haftalık Plan Oluştur',
-          style: TextStyle(
+        title: Text(
+          _planTypeSelected ? 'Plan Oluştur' : 'Plan Türü Seç',
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (_planTypeSelected) {
+              setState(() => _planTypeSelected = false);
+            } else {
+              Navigator.pop(context);
+            }
+          },
         ),
       ),
-      body: Column(
-        children: [
-          _buildPlanModeSelector(),
-          _buildDayTabs(),
-          Expanded(
-            child: _selectedMode == 0
-                ? _buildGoalBasedPlanView()
-                : _buildTimeBasedPlanView(),
-          ),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomBar(),
+      body: _planTypeSelected ? _buildPlanCreationView() : _buildPlanTypeSelection(),
     );
   }
   
-  Widget _buildPlanModeSelector() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Plan Türü Seçin',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+  Widget _buildPlanTypeSelection() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.calendar_month,
+                size: 64,
+                color: Colors.deepPurple,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildModeCard(
-                  index: 0,
-                  icon: Icons.flag_outlined,
-                  title: 'Hedef Odaklı',
-                  subtitle: 'Yapılacaklar listesi',
-                ),
+            const SizedBox(height: 32),
+            const Text(
+              'Hangi Tür Plan Oluşturmak\nİstersiniz?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildModeCard(
-                  index: 1,
-                  icon: Icons.schedule_outlined,
-                  title: 'Saat Saat',
-                  subtitle: 'Zaman dilimleri',
-                ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Size uygun plan türünü seçin',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
               ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 48),
+            _buildPlanTypeCard(
+              mode: 0,
+              icon: Icons.checklist_rounded,
+              title: 'Hedef Odaklı Plan',
+              subtitle: 'Yapılacaklar listesi şeklinde',
+              description: 'Her gün için hedeflerinizi belirleyin ve tamamlayın',
+              color: Colors.purple,
+            ),
+            const SizedBox(height: 20),
+            _buildPlanTypeCard(
+              mode: 1,
+              icon: Icons.schedule_rounded,
+              title: 'Saat Saat Plan',
+              subtitle: 'Zaman dilimleri şeklinde',
+              description: 'Gününüzü saat bazında planlayın ve takip edin',
+              color: Colors.blue,
+            ),
+          ],
+        ),
       ),
     );
   }
   
-  Widget _buildModeCard({
-    required int index,
+  Widget _buildPlanTypeCard({
+    required int mode,
     required IconData icon,
     required String title,
     required String subtitle,
+    required String description,
+    required MaterialColor color,
   }) {
-    final isSelected = _selectedMode == index;
+    final isSelected = _selectedMode == mode;
+    
     return GestureDetector(
       onTap: () {
         setState(() {
-          _selectedMode = index;
+          _selectedMode = mode;
+          _planTypeSelected = true;
         });
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple.shade50 : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? Colors.deepPurple : Colors.grey.shade300,
+            color: isSelected ? color : Colors.grey.shade200,
             width: 2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.deepPurple : Colors.grey.shade600,
-              size: 32,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color.shade400, color.shade600],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
             Text(
-              title,
+              description,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? Colors.deepPurple : Colors.black87,
+                color: Colors.grey.shade700,
+                height: 1.5,
               ),
             ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade600,
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [color.shade400, color.shade600],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Bu Planı Seç',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+  
+  Widget _buildPlanCreationView() {
+    return Column(
+      children: [
+        _buildDayTabs(),
+        Expanded(
+          child: _selectedMode == 0
+              ? _buildGoalBasedPlanView()
+              : _buildTimeBasedPlanView(),
+        ),
+        _buildBottomBar(),
+      ],
     );
   }
   

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:akillikocum/pages/weekly_plan_create_page.dart';
+import 'package:akillikocum/pages/weekly_plan_view_page.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -115,12 +116,11 @@ class _HomePageState extends State<HomePage> {
       // Check if user has weekly plan
       final plansQuery = await FirebaseFirestore.instance
           .collection('plans')
-          .where('userId', isEqualTo: user!.uid)
-          .limit(1)
+          .doc(user!.uid)
           .get();
       
       setState(() {
-        hasWeeklyPlan = plansQuery.docs.isNotEmpty;
+        hasWeeklyPlan = plansQuery.exists;
         isLoading = false;
       });
     } catch (e) {
@@ -550,17 +550,24 @@ class _HomePageState extends State<HomePage> {
                     width: cardWidth,
                     height: cardHeight,
                     child: _buildFeatureCard(
-                      icon: Icons.calendar_today_rounded,
+                      icon: hasWeeklyPlan ? Icons.visibility_rounded : Icons.calendar_today_rounded,
                       title: hasWeeklyPlan ? 'Haftalık Planını\nGörüntüle' : 'Haftalık Plan\nOluştur',
-                      gradient: [Colors.purple.shade400, Colors.purple.shade600],
+                      color1: const Color(0xFFAB47BC),
+                      color2: const Color(0xFF8E24AA),
                       onTap: () async {
                         if (hasWeeklyPlan) {
-                          // TODO: Plan görüntüleme sayfası
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Plan görüntüleme özelliği yakında!'),
+                          // Plan görüntüleme sayfasına git
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const WeeklyPlanViewPage(),
                             ),
                           );
+                          
+                          // Plan silindiyse ana sayfayı yenile
+                          if (result == true) {
+                            _loadUserData();
+                          }
                         } else {
                           // Plan oluşturma sayfasına git
                           final result = await Navigator.push(
@@ -584,7 +591,8 @@ class _HomePageState extends State<HomePage> {
                     child: _buildFeatureCard(
                       icon: Icons.analytics_rounded,
                       title: 'Deneme\nAnalizi Yap',
-                      gradient: [Colors.blue.shade400, Colors.blue.shade600],
+                      color1: const Color(0xFF42A5F5),
+                      color2: const Color(0xFF1E88E5),
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -600,7 +608,8 @@ class _HomePageState extends State<HomePage> {
                     child: _buildFeatureCard(
                       icon: Icons.menu_book_rounded,
                       title: 'Konu\nÖzetleri',
-                      gradient: [Colors.green.shade400, Colors.green.shade600],
+                      color1: const Color(0xFF66BB6A),
+                      color2: const Color(0xFF43A047),
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -616,7 +625,8 @@ class _HomePageState extends State<HomePage> {
                     child: _buildFeatureCard(
                       icon: Icons.help_outline_rounded,
                       title: 'Sorunu\nÇözelim',
-                      gradient: [Colors.orange.shade400, Colors.orange.shade600],
+                      color1: const Color(0xFFFFA726),
+                      color2: const Color(0xFFFB8C00),
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -638,7 +648,8 @@ class _HomePageState extends State<HomePage> {
   Widget _buildFeatureCard({
     required IconData icon,
     required String title,
-    required List<Color> gradient,
+    required Color color1,
+    required Color color2,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -648,12 +659,12 @@ class _HomePageState extends State<HomePage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: gradient,
+            colors: [color1, color2],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: gradient[0].withOpacity(0.3),
+              color: color1.withOpacity(0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
