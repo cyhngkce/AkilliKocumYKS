@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:akillikocum/pages/goal_setting_page.dart';
 
 class ProfileCompletionPage extends StatefulWidget {
   const ProfileCompletionPage({super.key});
@@ -67,7 +68,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
         throw Exception('Kullanıcı bulunamadı. Lütfen tekrar giriş yapın.');
       }
       
-      // Save to Firestore (profil fotoğrafı olmadan)
+      // Save to Firestore
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'name': _nameController.text.trim(),
         'surname': _surnameController.text.trim(),
@@ -82,40 +83,12 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
       if (mounted) {
         _showSnackBar('Profiliniz başarıyla oluşturuldu!', isError: false);
         
-        // Ana sayfaya yönlendir
-        // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
-        
-        // Şimdilik 2 saniye bekleyip bilgi göster
-        await Future.delayed(const Duration(seconds: 2));
+        // Navigate to goal setting page
+        await Future.delayed(const Duration(milliseconds: 500));
         if (mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 32),
-                  SizedBox(width: 12),
-                  Text('Başarılı!'),
-                ],
-              ),
-              content: const Text(
-                'Profiliniz başarıyla oluşturuldu.\n\nAna sayfa henüz hazır olmadığı için bu ekranda kalıyorsunuz.',
-                style: TextStyle(fontSize: 16),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'Tamam',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const GoalSettingPage()),
           );
         }
       }
@@ -683,7 +656,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
                       ),
                     )
                   : Text(
-                      _currentStep == 2 ? 'Tamamla' : 'Devam',
+                      _currentStep == 2 ? 'Devam' : 'Devam',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

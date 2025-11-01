@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:akillikocum/service/auth.dart';
 import 'package:akillikocum/pages/profile_completion_page.dart';
+import 'package:akillikocum/pages/home_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginRegisterPage extends StatefulWidget {
   const LoginRegisterPage({super.key});
@@ -71,10 +74,9 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
-        // Giriş başarılı - Ana sayfaya yönlendir
-        if (mounted) {
-          // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomePage()));
-        }
+        
+        // Giriş başarılı - Kullanıcının profilini ve hedeflerini kontrol et
+        await _checkUserDataAndNavigate();
       } else {
         await _auth.createUser(
           email: _emailController.text.trim(),
@@ -104,6 +106,64 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _checkUserDataAndNavigate() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Kullanıcının profil bilgilerini kontrol et
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        // Profil yok - Profil tamamlama sayfasına yönlendir
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileCompletionPage()),
+          );
+        }
+        return;
+      }
+
+      // Kullanıcının hedef bilgilerini kontrol et
+      final goalsDoc = await FirebaseFirestore.instance
+          .collection('goals')
+          .doc(user.uid)
+          .get();
+
+      if (!goalsDoc.exists) {
+        // Hedef yok - Profil tamamlama sayfasına yönlendir (oradan hedef belirlemeye gidecek)
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileCompletionPage()),
+          );
+        }
+        return;
+      }
+
+      // Hem profil hem hedef var - Ana sayfaya yönlendir
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    } catch (e) {
+      print('Error checking user data: $e');
+      // Hata durumunda ana sayfaya yönlendir
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
       }
     }
   }
