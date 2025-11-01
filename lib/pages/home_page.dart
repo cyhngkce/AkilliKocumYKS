@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:akillikocum/pages/weekly_plan_create_page.dart';
 import 'package:akillikocum/pages/weekly_plan_view_page.dart';
+import 'package:akillikocum/pages/ai_question_solver_page.dart';
 import 'dart:async';
 
 class HomePage extends StatefulWidget {
@@ -232,7 +233,6 @@ class _HomePageState extends State<HomePage> {
         IconButton(
           icon: const Icon(Icons.notifications_outlined),
           onPressed: () {
-            // TODO: Bildirimler sayfası
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Bildirimler özelliği yakında!')),
             );
@@ -538,9 +538,8 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
-              // Responsive card sizing
               final cardWidth = (constraints.maxWidth - 16) / 2;
-              final cardHeight = cardWidth * 0.95; // Slightly shorter aspect ratio
+              final cardHeight = cardWidth * 0.95;
               
               return Wrap(
                 spacing: 16,
@@ -556,7 +555,6 @@ class _HomePageState extends State<HomePage> {
                       color2: const Color(0xFF8E24AA),
                       onTap: () async {
                         if (hasWeeklyPlan) {
-                          // Plan görüntüleme sayfasına git
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -564,12 +562,10 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                           
-                          // Plan silindiyse ana sayfayı yenile
                           if (result == true) {
                             _loadUserData();
                           }
                         } else {
-                          // Plan oluşturma sayfasına git
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -577,7 +573,6 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                           
-                          // Plan oluşturulduysa ana sayfayı yenile
                           if (result == true) {
                             _loadUserData();
                           }
@@ -628,9 +623,10 @@ class _HomePageState extends State<HomePage> {
                       color1: const Color(0xFFFFA726),
                       color2: const Color(0xFFFB8C00),
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Soru çözme özelliği yakında!'),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const AiQuestionSolverPage(),
                           ),
                         );
                       },
@@ -745,7 +741,6 @@ class _HomePageState extends State<HomePage> {
                 label: 'AI Asistan',
                 isSelected: false,
                 onTap: () {
-                  // TODO: AI Asistan sayfası
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('AI Asistan özelliği yakında!'),
@@ -758,7 +753,6 @@ class _HomePageState extends State<HomePage> {
                 label: 'Profil',
                 isSelected: false,
                 onTap: () {
-                  // TODO: Profil sayfası
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Profil sayfası yakında!'),

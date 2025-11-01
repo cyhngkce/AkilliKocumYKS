@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:akillikocum/pages/weekly_plan_create_page.dart';
 
 class WeeklyPlanViewPage extends StatefulWidget {
   const WeeklyPlanViewPage({super.key});
@@ -17,7 +18,7 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
   bool _hasPlan = false;
   String _planType = '';
   Map<String, dynamic> _planData = {};
-  String _selectedDay = 'Pazartesi';
+  String _selectedDay = '';
   
   final List<String> _weekDays = [
     'Pazartesi',
@@ -32,7 +33,13 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    
+    // Bugünün gününü bul
+    final today = DateTime.now().weekday; // 1=Monday, 7=Sunday
+    final todayIndex = today == 7 ? 6 : today - 1; // Pazar için 6, diğerleri için today-1
+    _selectedDay = _weekDays[todayIndex];
+    
+    _tabController = TabController(length: 7, vsync: this, initialIndex: todayIndex);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) {
         setState(() {
@@ -84,6 +91,67 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+  
+  Future<void> _toggleActivityCompletion(String day, int index, bool currentValue) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      
+      // Firestore'dan güncel veriyi al
+      final doc = await FirebaseFirestore.instance
+          .collection('plans')
+          .doc(user.uid)
+          .get();
+      
+      if (!doc.exists) return;
+      
+      final data = doc.data()!;
+      final activities = data[day] as List<dynamic>;
+      
+      if (_planType == 'time-based') {
+        // Saat saat plan için
+        activities[index]['completed'] = !currentValue;
+      }
+      
+      // Güncellenmiş veriyi kaydet
+      await FirebaseFirestore.instance
+          .collection('plans')
+          .doc(user.uid)
+          .update({day: activities});
+      
+      // Yerel state'i güncelle
+      setState(() {
+        if (_planType == 'time-based') {
+          (_planData[day] as List)[index]['completed'] = !currentValue;
+        }
+      });
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  Future<void> _editPlan() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WeeklyPlanCreatePage(
+          isEdit: true,
+          existingPlanData: _planData,
+        ),
+      ),
+    );
+    
+    // Plan güncellendiyse yeniden yükle
+    if (result == true) {
+      _loadPlan();
     }
   }
   
@@ -166,6 +234,11 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
         ),
         actions: _hasPlan && !_isLoading
             ? [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.white),
+                  onPressed: _editPlan,
+                  tooltip: 'Planı Düzenle',
+                ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.white),
                   onPressed: _deletePlan,
@@ -338,11 +411,35 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
           final activities = _getActivitiesForDay(day);
           final count = activities.length;
           
+          // Bugünün günü mü kontrol et
+          final today = DateTime.now().weekday;
+          final todayIndex = today == 7 ? 6 : today - 1;
+          final isToday = _weekDays.indexOf(day) == todayIndex;
+          
           return Tab(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(dayShort),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(dayShort),
+                    if (isToday)
+                      Container(
+                        margin: const EdgeInsets.only(left: 4),
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.deepPurple,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.today,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
                 if (count > 0)
                   Container(
                     margin: const EdgeInsets.only(top: 4),
@@ -385,7 +482,7 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
                 itemCount: activities.length,
                 itemBuilder: (context, index) {
                   final activity = activities[index] as String;
-                  return _buildGoalActivityCard(activity, index);
+                  return _buildGoalActivityCard(activity, index, day);
                 },
               );
       }).toList(),
@@ -405,7 +502,8 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
                 itemCount: activities.length,
                 itemBuilder: (context, index) {
                   final activity = activities[index] as Map<String, dynamic>;
-                  return _buildTimeSlotCard(activity);
+                  final isCompleted = activity['completed'] ?? false;
+                  return _buildTimeSlotCard(activity, index, day, isCompleted);
                 },
               );
       }).toList(),
@@ -435,7 +533,7 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
     );
   }
   
-  Widget _buildGoalActivityCard(String activity, int index) {
+  Widget _buildGoalActivityCard(String activity, int index, String day) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -484,25 +582,13 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.check_circle_outline,
-                color: Colors.green.shade600,
-                size: 24,
-              ),
-            ),
           ],
         ),
       ),
     );
   }
   
-  Widget _buildTimeSlotCard(Map<String, dynamic> activity) {
+  Widget _buildTimeSlotCard(Map<String, dynamic> activity, int index, String day, bool isCompleted) {
     final startTime = activity['startTime'] ?? '';
     final endTime = activity['endTime'] ?? '';
     final activityName = activity['activity'] ?? '';
@@ -545,10 +631,12 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
                 children: [
                   Text(
                     activityName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
+                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                      decorationColor: Colors.grey,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -572,16 +660,20 @@ class _WeeklyPlanViewPageState extends State<WeeklyPlanViewPage>
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.check_circle_outline,
-                color: Colors.green.shade600,
-                size: 24,
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _toggleActivityCompletion(day, index, isCompleted),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isCompleted ? Colors.green.shade50 : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  isCompleted ? Icons.check_circle : Icons.check_circle_outline,
+                  color: isCompleted ? Colors.green.shade600 : Colors.grey.shade400,
+                  size: 28,
+                ),
               ),
             ),
           ],

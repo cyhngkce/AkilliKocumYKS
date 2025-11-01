@@ -3,7 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WeeklyPlanCreatePage extends StatefulWidget {
-  const WeeklyPlanCreatePage({super.key});
+  final bool isEdit;
+  final Map<String, dynamic>? existingPlanData;
+  
+  const WeeklyPlanCreatePage({
+    super.key,
+    this.isEdit = false,
+    this.existingPlanData,
+  });
 
   @override
   State<WeeklyPlanCreatePage> createState() => _WeeklyPlanCreatePageState();
@@ -66,6 +73,48 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
         });
       }
     });
+    
+    // Düzenleme modundaysa mevcut planı yükle
+    if (widget.isEdit && widget.existingPlanData != null) {
+      _loadExistingPlan();
+    }
+  }
+  
+  void _loadExistingPlan() {
+    final data = widget.existingPlanData!;
+    
+    // Plan türünü belirle
+    final planType = data['planType'] ?? 'goal-based';
+    _selectedMode = planType == 'goal-based' ? 0 : 1;
+    _planTypeSelected = true;
+    
+    // Verileri yükle
+    for (String day in _weekDays) {
+      if (data.containsKey(day)) {
+        if (_selectedMode == 0) {
+          // Hedef odaklı plan
+          final activities = data[day] as List<dynamic>?;
+          if (activities != null) {
+            _goalBasedPlan[day] = activities.map((e) => e.toString()).toList();
+          }
+        } else {
+          // Saat saat plan
+          final timeSlots = data[day] as List<dynamic>?;
+          if (timeSlots != null) {
+            _timeBasedPlan[day] = timeSlots.map((e) {
+              final slot = e as Map<String, dynamic>;
+              return TimeSlot(
+                startTime: slot['startTime'] ?? '',
+                endTime: slot['endTime'] ?? '',
+                activity: slot['activity'] ?? '',
+              );
+            }).toList();
+          }
+        }
+      }
+    }
+    
+    setState(() {});
   }
   
   @override
@@ -74,11 +123,31 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
     super.dispose();
   }
   
+  // Saat sıralaması için karşılaştırma fonksiyonu
+  int _compareTimeSlots(TimeSlot a, TimeSlot b) {
+    try {
+      final aTime = a.startTime.split(':');
+      final bTime = b.startTime.split(':');
+      
+      final aHour = int.parse(aTime[0]);
+      final aMin = int.parse(aTime[1]);
+      final bHour = int.parse(bTime[0]);
+      final bMin = int.parse(bTime[1]);
+      
+      if (aHour != bHour) {
+        return aHour.compareTo(bHour);
+      }
+      return aMin.compareTo(bMin);
+    } catch (e) {
+      return 0;
+    }
+  }
+  
   Future<void> _savePlan() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     
-    // Validate that at least one day has activities
+    // Validasyon kontrolleri
     bool hasActivities = false;
     
     if (_selectedMode == 0) {
@@ -98,7 +167,7 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
       Map<String, dynamic> planData = {
         'userId': user.uid,
         'planType': _selectedMode == 0 ? 'goal-based' : 'time-based',
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': widget.isEdit ? widget.existingPlanData!['createdAt'] : FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       };
       
@@ -108,13 +177,18 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
           planData[day] = _goalBasedPlan[day] ?? [];
         });
       } else {
-        // Saat saat plan - TimeSlot'ları Map'e çevir
+        // Saat saat plan - Saatlere göre sırala ve Map'e çevir
         _weekDays.forEach((day) {
-          planData[day] = (_timeBasedPlan[day] ?? []).map((slot) {
+          final slots = _timeBasedPlan[day] ?? [];
+          // Saatlere göre sırala
+          slots.sort(_compareTimeSlots);
+          
+          planData[day] = slots.map((slot) {
             return {
               'startTime': slot.startTime,
               'endTime': slot.endTime,
               'activity': slot.activity,
+              'completed': false, // Yeni eklenen: tamamlanma durumu
             };
           }).toList();
         });
@@ -127,9 +201,14 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
           .set(planData);
       
       if (mounted) {
-        _showSnackBar('Haftalık planınız başarıyla kaydedildi!', isError: false);
+        _showSnackBar(
+          widget.isEdit 
+            ? 'Haftalık planınız başarıyla güncellendi!' 
+            : 'Haftalık planınız başarıyla kaydedildi!',
+          isError: false
+        );
         await Future.delayed(const Duration(seconds: 1));
-        Navigator.pop(context, true); // true = plan created
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -302,6 +381,8 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
                             activity: activity.trim(),
                           ),
                         );
+                        // Ekledikten sonra sırala
+                        _timeBasedPlan[_selectedDay]!.sort(_compareTimeSlots);
                       });
                       Navigator.pop(context);
                     } else {
@@ -337,7 +418,9 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
         elevation: 0,
         backgroundColor: Colors.deepPurple,
         title: Text(
-          _planTypeSelected ? 'Plan Oluştur' : 'Plan Türü Seç',
+          widget.isEdit
+            ? 'Planı Düzenle'
+            : (_planTypeSelected ? 'Plan Oluştur' : 'Plan Türü Seç'),
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -346,7 +429,7 @@ class _WeeklyPlanCreatePageState extends State<WeeklyPlanCreatePage>
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            if (_planTypeSelected) {
+            if (_planTypeSelected && !widget.isEdit) {
               setState(() => _planTypeSelected = false);
             } else {
               Navigator.pop(context);
